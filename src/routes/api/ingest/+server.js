@@ -34,22 +34,26 @@ export const POST = async ({ platform }) => {
     const docs = await loadApiDocs("https://docs.crustdata.com/docs/intro");
     const split_docs = await splitDocs(docs);
 
-    // process all documents in one batch
-    const { data } = await platform.env.AI.run("@cf/baai/bge-base-en-v1.5", {
-      text: split_docs.map(doc => doc.pageContent),
-    });
-    
-    if (!data) throw new Error('Failed to generate vector embeddings!');
+    const batchSize = 10;
+    for (let i = 0; i < split_docs.length; i += batchSize) {
+      const batch = split_docs.slice(i, i + batchSize);
 
-    const vectors = data.map((values, i) => ({
-      id: split_docs[i].id,
-      values,
-      metadata: split_docs[i].metadata,
-    }));
+      const { data } = await platform.env.AI.run("@cf/baai/bge-base-en-v1.5", {
+        text: batch.map(doc => doc.pageContent),
+      });
 
-    await platform.env.VECTOR_INDEX.upsert(vectors);
+      if (!data) throw new Error('Failed to generate vector embeddings!');
+
+      const vectors = data.map((values, j) => ({
+        id: batch[j].id,
+        values,
+        metadata: batch[j].metadata,
+      }));
+
+      await platform.env.VECTOR_INDEX.upsert(vectors);
+    }
+
     await platform.env.CRUSTDATA_KV.put('docsIngested', 'true');
-
     return json({ message: 'Initial ingestion completed!' }, { status: 200 });
   } catch (err) {
     return error(500, { message: err.message });
