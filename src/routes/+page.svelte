@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import Icon from '@iconify/svelte';
+  import showdown from "showdown";
   
   let messages = $state([]);
   let inputMessage = $state("");
@@ -11,21 +12,24 @@
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
-    
-    messages = [...messages, { text: inputMessage.trim(), sender: "user" }];
+    const userMessage = inputMessage.trim();
     inputMessage = "";
-    
-    // reset textarea height to default (3rem matches py-2 + text base line height)
     if (inputEl) inputEl.style.height = '2rem';
 
     try {
-      const response = await fetch('/api/test', {
-        method: 'GET',
-        headers: { 'content-type': 'application/json' }
+      messages = [...messages, { text: userMessage, sender: "user" }];
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: userMessage })
       });
 
-      const bot_response = await response.json();
-      messages = [...messages, { text: JSON.stringify(bot_response.response), sender: "bot" }];
+      const botResponse = await response.json();
+      const converter = new showdown.Converter();
+      const convertedBotRes = converter.makeHtml(botResponse.response);
+      console.log(convertedBotRes);
+      messages = [...messages, { text: convertedBotRes, sender: "bot" }];
     } catch (err) {
       console.log(err);
     }
@@ -68,7 +72,7 @@
           <div class="flex {message.sender === 'user' ? 'justify-end' : 'justify-start'}">
             <div class="max-w-[60%] md:max-w-[50%] rounded-lg p-3 whitespace-pre-wrap
               {message.sender === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'}">
-              {message.text}
+              {@html message.text}
             </div>
           </div>
         {/each}

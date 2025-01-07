@@ -26,6 +26,13 @@
   },
   "type": "module",
   "dependencies": {
-    "@iconify/svelte": "^4.2.0"
+    "@iconify/svelte": "^4.2.0",
+    "@langchain/community": "^0.3.22",
+    "@langchain/core": "^0.3.27",
+    "@langchain/langgraph": "^0.2.39",
+    "html-to-text": "^9.0.5",
+    "jsdom": "^25.0.1",
+    "langchain": "^0.3.10",
+    "showdown": "^2.1.0"
   }
 }
