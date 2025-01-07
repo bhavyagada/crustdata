@@ -27,7 +27,7 @@ const splitDocs = async (docs) => {
 export const POST = async ({ platform }) => {
   try {
     // check if docs already ingested
-    const isIngested = await platform.env.KV.get('docsIngested');
+    const isIngested = await platform.env.CRUSTDATA_KV.get('docsIngested');
     if (isIngested) return json({ message: 'Documents already ingested' });
 
     // load and split docs
@@ -48,7 +48,7 @@ export const POST = async ({ platform }) => {
     }));
 
     await platform.env.VECTOR_INDEX.upsert(vectors);
-    await platform.env.KV.put('docsIngested', 'true');
+    await platform.env.CRUSTDATA_KV.put('docsIngested', 'true');
 
     return json({ message: 'Initial ingestion completed!' }, { status: 200 });
   } catch (err) {
