@@ -8,7 +8,7 @@
 
   onMount(() => inputEl.focus());
   
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputMessage.trim()) return;
     
@@ -17,6 +17,18 @@
     
     // reset textarea height to default (3rem matches py-2 + text base line height)
     if (inputEl) inputEl.style.height = '2rem';
+
+    try {
+      const response = await fetch('/api/test', {
+        method: 'GET',
+        headers: { 'content-type': 'application/json' }
+      });
+
+      const bot_response = await response.json();
+      messages = [...messages, { text: JSON.stringify(bot_response.response), sender: "bot" }];
+    } catch (err) {
+      console.log(err);
+    }
   }
 
   const handleKeydown = (e) => {
