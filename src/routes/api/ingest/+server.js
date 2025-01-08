@@ -34,6 +34,7 @@ export const POST = async ({ platform }) => {
     const docs = await loadApiDocs("https://docs.crustdata.com/docs/intro");
     const split_docs = await splitDocs(docs);
 
+    let counter = 0;
     const batchSize = 10;
     for (let i = 0; i < split_docs.length; i += batchSize) {
       const batch = split_docs.slice(i, i + batchSize);
@@ -41,16 +42,19 @@ export const POST = async ({ platform }) => {
       const { data } = await platform.env.AI.run("@cf/baai/bge-base-en-v1.5", {
         text: batch.map(doc => doc.pageContent),
       });
-
+      console.log(data);
       if (!data) throw new Error('Failed to generate vector embeddings!');
 
       const vectors = data.map((values, j) => ({
-        id: batch[j].id,
+        id: `doc_${counter++}`,
         values,
-        metadata: batch[j].metadata,
+        metadata: {
+          ...batch[j].metadata,
+          loc: JSON.stringify(batch[j].metadata.loc),
+        },
       }));
-
-      await platform.env.VECTOR_INDEX.upsert(vectors);
+      console.log(vectors);
+      await platform.env.VECTORIZE.upsert(vectors);
     }
 
     await platform.env.CRUSTDATA_KV.put('docsIngested', 'true');
