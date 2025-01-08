@@ -8,8 +8,8 @@ const loadApiDocs = async (url) => {
 
   const loader = new RecursiveUrlLoader(url, {
     extractor: compiledConvert,
-    maxDepth: 8,
-    preventOutside: true,
+    maxDepth: 20,
+    excludeDirs: ["https://docs.crustdata.com/api"]
   });
 
   return await loader.load();
@@ -17,7 +17,7 @@ const loadApiDocs = async (url) => {
 
 const splitDocs = async (docs) => {
   const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,
+    chunkSize: 4000,
     chunkOverlap: 200
   });
 
@@ -33,28 +33,30 @@ export const POST = async ({ platform }) => {
     // load and split docs
     const docs = await loadApiDocs("https://docs.crustdata.com/docs/intro");
     const split_docs = await splitDocs(docs);
+    console.log(split_docs);
 
     let counter = 0;
     const batchSize = 10;
-    for (let i = 0; i < split_docs.length; i += batchSize) {
-      const batch = split_docs.slice(i, i + batchSize);
-
+    for (let i = 0; i < split_docs.length; i++) {
       const { data } = await platform.env.AI.run("@cf/baai/bge-base-en-v1.5", {
-        text: batch.map(doc => doc.pageContent),
+        text: [split_docs[i].pageContent],
       });
-      console.log(data);
-      if (!data) throw new Error('Failed to generate vector embeddings!');
+      const values = data[0];
 
-      const vectors = data.map((values, j) => ({
-        id: `doc_${counter++}`,
+      // prepare vectors and store content in d1
+      const docId = `doc_${counter++}`;
+      const content = split_docs[i].pageContent;
+      const metadata = JSON.stringify(split_docs[i].metadata);
+      console.log(content);
+
+      // store document in d1
+      await platform.env.DB.prepare(`INSERT INTO documents (id, content, metadata) VALUES (?, ?, ?)`).bind(docId, content, metadata).run();
+
+      // upsert vector embeddings into VECTORIZE
+      await platform.env.VECTORIZE.upsert([{
+        id: docId,
         values,
-        metadata: {
-          ...batch[j].metadata,
-          loc: JSON.stringify(batch[j].metadata.loc),
-        },
-      }));
-      console.log(vectors);
-      await platform.env.VECTORIZE.upsert(vectors);
+      }]);
     }
 
     await platform.env.CRUSTDATA_KV.put('docsIngested', 'true');
